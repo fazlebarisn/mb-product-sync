@@ -28,7 +28,7 @@ add_action( 'admin_enqueue_scripts', 'mb_product_sync_assets' );
  */
 function mb_product_sync_menu(){
     add_submenu_page(
-        'edit.php?post_type=product',
+        'mb_syncs',
         'Menual Product Sync',
         'Menual Product Sync',
         'manage_options',
@@ -36,7 +36,7 @@ function mb_product_sync_menu(){
         'mb_menual_products_sync'
     );
 }
-add_action( 'admin_menu', 'mb_product_sync_menu' );
+add_action( 'admin_menu', 'mb_product_sync_menu', 999 );
 
 
 function mb_menual_products_sync(){
