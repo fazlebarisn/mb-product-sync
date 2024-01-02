@@ -92,3 +92,30 @@ function get_menual_product_id_by_itemno_meta_value($itemno_value){
     // Restore the original post data
     wp_reset_postdata();
 }
+
+function get_menual_product_id_by_sku_meta_value($sku_value){
+    if($sku_value == ''){
+        return;
+    }
+    $args = array(
+        'post_type' => 'product',
+        'meta_key' => '_sku',
+        //'meta_key' => '_sku',
+        'meta_value' => $sku_value,
+        'meta_compare' => '=',
+        'posts_per_page' => 1,
+    );
+    
+    $query = new WP_Query( $args );
+    
+    if ( $query->have_posts() ) {
+        while ( $query->have_posts() ) {
+            $query->the_post();
+            $post_id = get_the_ID();
+            // Do something with the post ID
+            return $post_id;
+        }
+    } 
+    // Restore the original post data
+    wp_reset_postdata();
+}

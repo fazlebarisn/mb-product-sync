@@ -13,7 +13,8 @@ require_once( plugin_dir_path( __FILE__ ) . '/all-functions/functions.php');
 require_once( plugin_dir_path( __FILE__ ) . '/api/fetch-all-menual-products-data-from-icitem-table.php');
 require_once( plugin_dir_path( __FILE__ ) . '/api/fetch-all-menual-products-data-from-icpricp-table.php');
 require_once( plugin_dir_path( __FILE__ ) . '/api/fetch-all-menual-products-data-from-iciloc-table.php');
-// require_once( plugin_dir_path( __FILE__ ) . '/api/fetch-all-products-data-from-trash-table.php');
+require_once( plugin_dir_path( __FILE__ ) . '/api/fetch-all-menual-products-data-from-j3-mijoshop-product-table.php');
+
 
 
 // Enqueue all assets
@@ -75,6 +76,15 @@ function mb_menual_products_sync(){
                     <input type="hidden" name="page" value="menual-product-sync">
                     <?php 
                         submit_button('All ICILOC Product Sync', 'primary', 'mb-product-iciloc-sync'); 
+                    ?>
+                </form>
+
+                <form method="GET">
+                    <input type="hidden" name="j3-mijoshop-product" value="1">
+                    <input type="hidden" name="post_type" value="product">
+                    <input type="hidden" name="page" value="menual-product-sync">
+                    <?php 
+                        submit_button('All Mijoshop Product Sync', 'primary', 'j3-mijoshop-product-sync'); 
                     ?>
                 </form>
             </div>
@@ -404,6 +414,121 @@ function mb_menual_products_sync(){
                     echo "<span style='color:red;font-weight:bold'>Total Execution Time: </span>" . $total;
 
                     if(! count( $all_quantity_locations )){
+                        wp_redirect( admin_url( "/edit.php?post_type=product&page=menual-product-sync" ) );
+                        exit();
+                    }
+                }
+
+
+                if(isset($_GET['j3-mijoshop-product'])){
+
+                    $page = $_GET['j3-mijoshop-product'] ?? 1;
+
+                    $allProducts = fetch_menual_all_products_data_from_j3_mijoshop_product_table($page);
+            
+                    $chunkarray = array_chunk($allProducts, 25);
+
+                    foreach ($chunkarray as $all_products) {
+                    
+                        foreach($all_products as $product){
+                            /**
+                             * Check Product not exit 
+                             * 
+                             * if product already exit than it will be not created as a product
+                             */
+
+                            //var_dump(mb_menual_product_exit($product['ITEMNO']));
+
+                            
+                            $post_id = get_menual_product_id_by_sku_meta_value($product["model"]);
+                            if ($post_id) {
+                                $itemno = get_post_meta($post_id, "itemno", true);
+
+                                $stores = fetch_all_menual_products_data_from_iciloc_table_for_mejoshop($itemno);
+                                
+                                //dd($existing_meta);
+                                $htmlDecodedData = html_entity_decode($product['meta']['description']);
+                               
+                                // Get the product object
+                                $wc_product = wc_get_product($post_id);
+                                // Update the product title and description
+                                $wc_product->set_name($product['meta']['name']);
+                                $wc_product->set_description($htmlDecodedData);
+
+                                // Save the changes
+                                $result = $wc_product->save();
+
+                                // Restore the existing meta values
+                                foreach ($stores as $meta_data) {
+                                    //dd($meta_data);
+                                    $quantity_location_meta_key = 'store_'.$meta_data['LOCATION'];
+
+                                    if ($wc_product) {
+                                        //update product PRICELIST as a custom meta 
+                                        $wc_product->update_meta_data($quantity_location_meta_key, $meta_data['QTYONHAND']);            
+                                        $wc_product->save(); //and finally save price list
+                                        //echo "<span style='color:green; font-weight:600;'>Product Saved Successfully</span>";
+                                    }
+                                }
+
+                                //dd($result);
+                                
+                                $status = update_post_meta( $post_id, 'status', $product['status']);
+
+                                // if (is_wp_error($metaData)) {
+                                //     $error_string = $metaData->get_error_message();
+                                //     $error_from = $product["model"];
+                                //     $log_message = $error_from ."<span style='color:red'>Get This Error</span>" . $error_string . "<br>";
+
+                                //     file_put_contents(plugin_dir_path(__FILE__) . 'error.html', $log_message, FILE_APPEND);
+                                // }else{
+
+                                //     $log_message = "<span style='color:green'>Update Meta Successfully</span> <br>";
+
+                                //     file_put_contents(plugin_dir_path(__FILE__) . 'debug.html', $log_message, FILE_APPEND);
+                                // }
+
+                                if (is_wp_error($status)) {
+                                    $error_string = $status->get_error_message();
+                                    $error_from = $product["model"];
+                                    $log_message = $error_from ."<span style='color:red'>Get This Error</span>" . $error_string . "<br>";
+
+                                    file_put_contents(plugin_dir_path(__FILE__) . 'error.html', $log_message, FILE_APPEND);
+                                }else{
+
+                                    $log_message = "Update status Successfully <br>";
+
+                                    //file_put_contents(plugin_dir_path(__FILE__) . 'debug.html', $log_message, FILE_APPEND);
+                                }
+
+                                $status2 = update_post_meta( $post_id, 'status_2', $product['status2']);
+
+                                if (is_wp_error($status2)) {
+                                    $error_string = $status2->get_error_message();
+                                    $error_from = $product["model"];
+                                    $log_message = $error_from ."<span style='color:red'>Get This Error</span>" . $error_string . "<br>";
+
+                                    file_put_contents(plugin_dir_path(__FILE__) . 'error.html', $log_message, FILE_APPEND);
+                                }else{
+
+                                    $log_message = "Update status2 Successfully <br>";
+
+                                    //file_put_contents(plugin_dir_path(__FILE__) . 'debug.html', $log_message, FILE_APPEND);
+                                }
+                            }else{
+                                $log_message = $product["model"] . "<span style='color:blue'> - Post Id Not Found!</span> <br>";
+
+                                    file_put_contents(plugin_dir_path(__FILE__) . 'not-found.html', $log_message, FILE_APPEND);
+                            }
+
+                            
+
+                            //dd($product["model"]);
+                        }
+                    }
+
+                    if(! count($allProducts)){
+
                         wp_redirect( admin_url( "/edit.php?post_type=product&page=menual-product-sync" ) );
                         exit();
                     }
